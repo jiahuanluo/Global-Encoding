@@ -2,6 +2,7 @@ import pyrouge
 import codecs
 import os
 import logging
+from rouge import FilesRouge
 
 def bleu(reference, candidate, log_path, print_log, config):
     ref_file = log_path+'reference.txt'
@@ -69,4 +70,23 @@ def rouge(reference, candidate, log_path, print_log, config):
     print_log("F_measure: %s Recall: %s Precision: %s\n"
               % (str(f_score), str(recall), str(precision)))
 
+    return f_score[:], recall[:], precision[:]
+
+def cal_rouge(log_path, print_log):
+    ref_path = log_path + 'reference.txt'
+    cand_path = log_path + 'candidate.txt' 
+    scores = FilesRouge(ref_path=ref_path, hyp_path=cand_path).get_scores(avg=True)
+    recall = [round(scores['rouge-1']['r'] * 100, 2),
+              round(scores['rouge-2']['r'] * 100, 2),
+              round(scores['rouge-l']['r'] * 100, 2),]
+
+
+    precision = [round(scores['rouge-1']['p'] * 100, 2),
+                 round(scores['rouge-2']['p'] * 100, 2),
+                 round(scores['rouge-l']['p'] * 100, 2)]
+
+    f_score = [round(scores['rouge-1']['f'] * 100, 2),
+                 round(scores['rouge-2']['f'] * 100, 2),
+                 round(scores['rouge-2']['f'] * 100, 2)]
+    print_log("F_measure: %s Recall: %s Precision: %s \n" % (str(f_score), str(recall), str(precision)))
     return f_score[:], recall[:], precision[:]

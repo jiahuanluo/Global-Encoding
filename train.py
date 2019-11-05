@@ -44,7 +44,7 @@ def load_data():
 
     trainset = utils.BiDataset(data['train'], char=config.char)
     validset = utils.BiDataset(data['valid'], char=config.char)
-
+    testset = utils.BiDataset(data['test'], char=config.char)
     src_vocab = data['dict']['src']
     tgt_vocab = data['dict']['tgt']
     config.src_vocab_size = src_vocab.size()
@@ -64,9 +64,13 @@ def load_data():
                                               shuffle=False,
                                               num_workers=0,
                                               collate_fn=utils.padding)
-
-    return {'trainset': trainset, 'validset': validset,
-            'trainloader': trainloader, 'validloader': validloader,
+    testloader = torch.utils.data.DataLoader(dataset=testset,
+                                             batch_size=valid_batch_size,
+                                             shuffle=False,
+                                             collate_fn=utils.padding
+    )
+    return {'trainset': trainset, 'validset': validset, 'testset': testset,
+            'trainloader': trainloader, 'validloader': validloader, 'testloader': testloader,
             'src_vocab': src_vocab, 'tgt_vocab': tgt_vocab}
 
 
@@ -189,8 +193,8 @@ def eval_model(model, data, params):
 
     model.eval()
     reference, candidate, source, alignments = [], [], [], []
-    count, total_count = 0, len(data['validset'])
-    validloader = data['validloader']
+    count, total_count = 0, len(data['testset'])
+    validloader = data['testloader']
     tgt_vocab = data['tgt_vocab']
 
 
@@ -237,9 +241,14 @@ def eval_model(model, data, params):
         for i in range(len(candidate)):
             f.write(" ".join(candidate[i])+'\n')
 
+    with codecs.open(params['log_path']+'reference.txt','w+','utf-8') as f:
+        for i in range(len(reference)):
+            f.write(" ".join(reference[i])+'\n')
+
     score = {}
     for metric in config.metrics:
-        score[metric] = getattr(utils, metric)(reference, candidate, params['log_path'], params['log'], config)
+        # score[metric] = getattr(utils, metric)(reference, candidate, params['log_path'], params['log'], config)
+        score[metric] = getattr(utils, "cal_rouge")(params['log_path'], params['log'])
 
     return score
 

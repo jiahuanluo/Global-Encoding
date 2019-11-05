@@ -1,4 +1,4 @@
-data: '/home/linjunyang/data/lcsts/data/'
+data: 'data/lcsts/global_data/'
 logF: 'experiments/lcsts/'
 epoch: 20
 batch_size: 64

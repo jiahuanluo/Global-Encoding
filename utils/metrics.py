@@ -4,19 +4,20 @@ import os
 import logging
 from rouge import FilesRouge
 
+
 def bleu(reference, candidate, log_path, print_log, config):
-    ref_file = log_path+'reference.txt'
-    cand_file = log_path+'candidate.txt'
+    ref_file = log_path + 'reference.txt'
+    cand_file = log_path + 'candidate.txt'
     with codecs.open(ref_file, 'w', 'utf-8') as f:
         for s in reference:
             if not config.char:
-                f.write(" ".join(s)+'\n')
+                f.write(" ".join(s) + '\n')
             else:
                 f.write("".join(s) + '\n')
     with codecs.open(cand_file, 'w', 'utf-8') as f:
         for s in candidate:
             if not config.char:
-                f.write(" ".join(s).strip()+'\n')
+                f.write(" ".join(s).strip() + '\n')
             else:
                 f.write("".join(s).strip() + '\n')
 
@@ -45,9 +46,9 @@ def rouge(reference, candidate, log_path, print_log, config):
         os.mkdir(cand_dir)
 
     for i in range(len(reference)):
-        with codecs.open(ref_dir+"%06d_reference.txt" % i, 'w', 'utf-8') as f:
+        with codecs.open(ref_dir + "%06d_reference.txt" % i, 'w', 'utf-8') as f:
             f.write(" ".join(reference[i]).replace(' <\s> ', '\n') + '\n')
-        with codecs.open(cand_dir+"%06d_candidate.txt" % i, 'w', 'utf-8') as f:
+        with codecs.open(cand_dir + "%06d_candidate.txt" % i, 'w', 'utf-8') as f:
             f.write(" ".join(candidate[i]).replace(' <\s> ', '\n').replace('<unk>', 'UNK') + '\n')
 
     r = pyrouge.Rouge155()
@@ -72,21 +73,21 @@ def rouge(reference, candidate, log_path, print_log, config):
 
     return f_score[:], recall[:], precision[:]
 
+
 def cal_rouge(log_path, print_log):
     ref_path = log_path + 'reference.txt'
-    cand_path = log_path + 'candidate.txt' 
+    cand_path = log_path + 'candidate.txt'
     scores = FilesRouge(ref_path=ref_path, hyp_path=cand_path).get_scores(avg=True)
     recall = [round(scores['rouge-1']['r'] * 100, 2),
               round(scores['rouge-2']['r'] * 100, 2),
-              round(scores['rouge-l']['r'] * 100, 2),]
-
+              round(scores['rouge-l']['r'] * 100, 2)]
 
     precision = [round(scores['rouge-1']['p'] * 100, 2),
                  round(scores['rouge-2']['p'] * 100, 2),
                  round(scores['rouge-l']['p'] * 100, 2)]
 
     f_score = [round(scores['rouge-1']['f'] * 100, 2),
-                 round(scores['rouge-2']['f'] * 100, 2),
-                 round(scores['rouge-2']['f'] * 100, 2)]
+               round(scores['rouge-2']['f'] * 100, 2),
+               round(scores['rouge-2']['f'] * 100, 2)]
     print_log("F_measure: %s Recall: %s Precision: %s \n" % (str(f_score), str(recall), str(precision)))
     return f_score[:], recall[:], precision[:]

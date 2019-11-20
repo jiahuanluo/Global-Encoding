@@ -18,14 +18,21 @@ class rnn_encoder(nn.Module):
         self.config = config
 
         if config.swish:
-            self.sw1 = nn.Sequential(nn.Conv1d(config.hidden_size, config.hidden_size, kernel_size=1, padding=0), nn.BatchNorm1d(config.hidden_size), nn.ReLU())
-            self.sw3 = nn.Sequential(nn.Conv1d(config.hidden_size, config.hidden_size, kernel_size=1, padding=0), nn.ReLU(), nn.BatchNorm1d(config.hidden_size),
-                                     nn.Conv1d(config.hidden_size, config.hidden_size, kernel_size=3, padding=1), nn.ReLU(), nn.BatchNorm1d(config.hidden_size))
-            self.sw33 = nn.Sequential(nn.Conv1d(config.hidden_size, config.hidden_size, kernel_size=1, padding=0), nn.ReLU(), nn.BatchNorm1d(config.hidden_size),
-                                      nn.Conv1d(config.hidden_size, config.hidden_size, kernel_size=3, padding=1), nn.ReLU(), nn.BatchNorm1d(config.hidden_size),
-                                      nn.Conv1d(config.hidden_size, config.hidden_size, kernel_size=3, padding=1), nn.ReLU(), nn.BatchNorm1d(config.hidden_size))
-            self.linear = nn.Sequential(nn.Linear(2*config.hidden_size, 2*config.hidden_size), nn.GLU(), nn.Dropout(config.dropout))
-            self.filter_linear = nn.Linear(3*config.hidden_size, config.hidden_size)
+            self.sw1 = nn.Sequential(nn.Conv1d(config.hidden_size, config.hidden_size, kernel_size=1, padding=0),
+                                     nn.BatchNorm1d(config.hidden_size), nn.ReLU())
+            self.sw3 = nn.Sequential(nn.Conv1d(config.hidden_size, config.hidden_size, kernel_size=1, padding=0),
+                                     nn.ReLU(), nn.BatchNorm1d(config.hidden_size),
+                                     nn.Conv1d(config.hidden_size, config.hidden_size, kernel_size=3, padding=1),
+                                     nn.ReLU(), nn.BatchNorm1d(config.hidden_size))
+            self.sw33 = nn.Sequential(nn.Conv1d(config.hidden_size, config.hidden_size, kernel_size=1, padding=0),
+                                      nn.ReLU(), nn.BatchNorm1d(config.hidden_size),
+                                      nn.Conv1d(config.hidden_size, config.hidden_size, kernel_size=3, padding=1),
+                                      nn.ReLU(), nn.BatchNorm1d(config.hidden_size),
+                                      nn.Conv1d(config.hidden_size, config.hidden_size, kernel_size=3, padding=1),
+                                      nn.ReLU(), nn.BatchNorm1d(config.hidden_size))
+            self.linear = nn.Sequential(nn.Linear(2 * config.hidden_size, 2 * config.hidden_size), nn.GLU(),
+                                        nn.Dropout(config.dropout))
+            self.filter_linear = nn.Linear(3 * config.hidden_size, config.hidden_size)
             self.tanh = nn.Tanh()
             self.sigmoid = nn.Sigmoid()
 
@@ -51,26 +58,26 @@ class rnn_encoder(nn.Module):
     def forward(self, inputs, lengths):
         embs = pack(self.embedding(inputs), lengths)
         outputs, state = self.rnn(embs)
-        outputs = unpack(outputs)[0]
+        outputs = unpack(outputs)[0]  # (torch.Size([seq_length, batch_size, hidden_size * 2]))
         if self.config.bidirectional:
             if self.config.swish:
-                outputs = self.linear(outputs)
+                outputs = self.linear(outputs)  # (seq_length, batch_size, hidden_size)
             else:
-                outputs = outputs[:,:,:self.config.hidden_size] + outputs[:,:,self.config.hidden_size:]
+                outputs = outputs[:, :, :self.config.hidden_size] + outputs[:, :, self.config.hidden_size:]
         if self.config.swish:
-            outputs = outputs.transpose(0,1).transpose(1,2)
+            outputs = outputs.transpose(0, 1).transpose(1, 2)
             conv1 = self.sw1(outputs)
             conv3 = self.sw3(outputs)
             conv33 = self.sw33(outputs)
             conv = torch.cat((conv1, conv3, conv33), 1)
-            conv = self.filter_linear(conv.transpose(1,2))
+            conv = self.filter_linear(conv.transpose(1, 2))
             if self.config.selfatt:
-                conv = conv.transpose(0,1)
-                outputs = outputs.transpose(1,2).transpose(0,1)
+                conv = conv.transpose(0, 1)
+                outputs = outputs.transpose(1, 2).transpose(0, 1)
             else:
                 gate = self.sigmoid(conv)
-                outputs = outputs * gate.transpose(1,2)
-                outputs = outputs.transpose(1,2).transpose(0,1)
+                outputs = outputs * gate.transpose(1, 2)
+                outputs = outputs.transpose(1, 2).transpose(0, 1)
 
         if self.config.selfatt:
             self.attention.init_context(context=conv)
@@ -83,8 +90,7 @@ class rnn_encoder(nn.Module):
         else:
             state = (state[0][::2], state[1][::2])
 
-        return outputs, state
-
+        return outputs, state  # (seq_length, batch_size, hidden_size), ([num_layers, batch_size, hidden_size]， [num_layers, batch_size, hidden_size])
 
 
 class rnn_decoder(nn.Module):
@@ -99,8 +105,13 @@ class rnn_decoder(nn.Module):
             self.rnn = StackedGRU(input_size=input_size, hidden_size=config.hidden_size,
                                   num_layers=config.dec_num_layers, dropout=config.dropout)
         else:
-            self.rnn = StackedLSTM(input_size=input_size, hidden_size=config.hidden_size,
-                                   num_layers=config.dec_num_layers, dropout=config.dropout)
+            if config.bi_dec:
+                self.rnn = nn.LSTM(input_size=config.emb_size, hidden_size=config.hidden_size,
+                                   num_layers=config.enc_num_layers, dropout=config.dropout,
+                                   bidirectional=config.bidirectional)
+            else:
+                self.rnn = StackedLSTM(input_size=input_size, hidden_size=config.hidden_size,
+                                       num_layers=config.dec_num_layers, dropout=config.dropout)
 
         self.linear = nn.Linear(config.hidden_size, config.tgt_vocab_size)
         self.linear_ = nn.Linear(config.hidden_size, config.hidden_size)
@@ -121,7 +132,10 @@ class rnn_decoder(nn.Module):
 
     def forward(self, input, state):
         embs = self.embedding(input)
-        output, state = self.rnn(embs, state)
+        output, state = self.rnn(embs, state)  # (batch_size, hidden_size), [(num_layer, batch_size, hidden_size), (num_layer, batch_size, hidden_size)]
+        if self.config.bi_dec:
+            output = output[-1:, :, :self.config.hidden_size] + output[-1:, :, self.config.hidden_size:]
+            output = output.squeeze(0)
         if self.attention is not None:
             if self.config.attention == 'luong_gate':
                 output, attn_weights = self.attention(output)
@@ -129,7 +143,7 @@ class rnn_decoder(nn.Module):
                 output, attn_weights = self.attention(output, embs)
         else:
             attn_weights = None
-        
+
         output = self.compute_score(output)
 
         return output, state, attn_weights

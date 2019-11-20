@@ -32,19 +32,27 @@ class seq2seq(nn.Module):
         return loss
 
     def forward(self, src, src_len, dec, targets, teacher_ratio=1.0):
-        src = src.t()
-        dec = dec.t()
+        src = src.t()  # (seq_length * batch_size)
+        dec = dec.t()  # (seq_length * batch_size)
         targets = targets.t()
         teacher = random.random() < teacher_ratio
 
-        contexts, state = self.encoder(src, src_len.tolist())
+        contexts, state = self.encoder(src, src_len.tolist())  # (seq_length, batch_size, hidden_size)
 
         if self.decoder.attention is not None:
             self.decoder.attention.init_context(context=contexts)
         outputs = []
+        inputs = []
         if teacher:
-            for input in dec.split(1):
-                output, state, attn_weights = self.decoder(input.squeeze(0), state)
+            for input in dec.split(1):  # (1 * batch_size)
+                inputs.append(input.squeeze(0))
+                if self.config.bi_dec:
+                    output, state, attn_weights = self.decoder(torch.stack(inputs), None)
+                else:
+                    output, state, attn_weights = self.decoder(input.squeeze(0), state)
+                    # output: (batch_size, dict_size)
+                    # state: [(num_layer, batch_size, hidden_size), (num_layer, batch_size, hidden_size)]
+                    # attn_weights: (batch_size, seq_length)
                 outputs.append(output)
             outputs = torch.stack(outputs)
         else:

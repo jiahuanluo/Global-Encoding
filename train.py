@@ -15,10 +15,10 @@ import codecs
 
 import numpy as np
 import matplotlib
+
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
-
 
 parser = argparse.ArgumentParser(description='train.py')
 opts.model_opts(parser)
@@ -39,7 +39,7 @@ if use_cuda:
 
 def load_data():
     print('loading data...\n')
-    data = pickle.load(open(config.data+'data.pkl', 'rb'))
+    data = pickle.load(open(config.data + 'data.pkl', 'rb'))
     data['train']['length'] = int(data['train']['length'] * opt.scale)
 
     trainset = utils.BiDataset(data['train'], char=config.char)
@@ -68,17 +68,16 @@ def load_data():
                                              batch_size=valid_batch_size,
                                              shuffle=False,
                                              collate_fn=utils.padding
-    )
+                                             )
     return {'trainset': trainset, 'validset': validset, 'testset': testset,
             'trainloader': trainloader, 'validloader': validloader, 'testloader': testloader,
             'src_vocab': src_vocab, 'tgt_vocab': tgt_vocab}
 
 
-
 def build_model(checkpoints, print_log):
     for k, v in config.items():
         print_log("%s:\t%s\n" % (str(k), str(v)))
-    
+
     # model
     print('building model...\n')
     model = getattr(models, opt.model)(config)
@@ -93,7 +92,7 @@ def build_model(checkpoints, print_log):
         model.encoder.load_state_dict(pre_ckpt)
     if use_cuda:
         model.cuda()
-    
+
     # optimizer
     if checkpoints is not None:
         optim = checkpoints['optim']
@@ -116,7 +115,6 @@ def build_model(checkpoints, print_log):
 
 
 def train_model(model, data, optim, epoch, params):
-
     model.train()
     trainloader = data['trainloader']
 
@@ -138,7 +136,7 @@ def train_model(model, data, optim, epoch, params):
             if config.schesamp:
                 if epoch > 8:
                     e = epoch - 8
-                    loss, outputs = model(src, lengths, dec, targets, teacher_ratio=0.9**e)
+                    loss, outputs = model(src, lengths, dec, targets, teacher_ratio=0.9 ** e)
                 else:
                     loss, outputs = model(src, lengths, dec, targets)
             else:
@@ -169,34 +167,33 @@ def train_model(model, data, optim, epoch, params):
 
         if params['updates'] % config.eval_interval == 0:
             params['log']("epoch: %3d, loss: %6.3f, time: %6.3f, updates: %8d, accuracy: %2.2f\n"
-                          % (epoch, params['report_loss'], time.time()-params['report_time'],
+                          % (epoch, params['report_loss'], time.time() - params['report_time'],
                              params['updates'], params['report_correct'] * 100.0 / params['report_total']))
             print('evaluating after %d updates...\r' % params['updates'])
             score = eval_model(model, data, params)
             for metric in config.metrics:
                 params[metric].append(score[metric])
                 if score[metric] >= max(params[metric]):
-                    with codecs.open(params['log_path']+'best_'+metric+'_prediction.txt','w','utf-8') as f:
-                        f.write(codecs.open(params['log_path']+'candidate.txt','r','utf-8').read())
-                    save_model(params['log_path']+'best_'+metric+'_checkpoint.pt', model, optim, params['updates'])
+                    with codecs.open(params['log_path'] + 'best_' + metric + '_prediction.txt', 'w', 'utf-8') as f:
+                        f.write(codecs.open(params['log_path'] + 'candidate.txt', 'r', 'utf-8').read())
+                    save_model(params['log_path'] + 'best_' + metric + '_checkpoint.pt', model, optim,
+                               params['updates'])
             model.train()
             params['report_loss'], params['report_time'] = 0, time.time()
             params['report_correct'], params['report_total'] = 0, 0
 
         if params['updates'] % config.save_interval == 0:
-            save_model(params['log_path']+'checkpoint.pt', model, optim, params['updates'])
+            save_model(params['log_path'] + 'checkpoint.pt', model, optim, params['updates'])
 
     optim.updateLearningRate(score=0, epoch=epoch)
 
 
 def eval_model(model, data, params):
-
     model.eval()
     reference, candidate, source, alignments = [], [], [], []
     count, total_count = 0, len(data['testset'])
     validloader = data['testloader']
     tgt_vocab = data['tgt_vocab']
-
 
     for src, tgt, src_len, tgt_len, original_src, original_tgt in validloader:
 
@@ -237,13 +234,13 @@ def eval_model(model, data, params):
                 print('Error!')
         candidate = cands
 
-    with codecs.open(params['log_path']+'candidate.txt','w+','utf-8') as f:
+    with codecs.open(params['log_path'] + 'candidate.txt', 'w+', 'utf-8') as f:
         for i in range(len(candidate)):
-            f.write(" ".join(candidate[i])+'\n')
+            f.write(" ".join(candidate[i]) + '\n')
 
-    with codecs.open(params['log_path']+'reference.txt','w+','utf-8') as f:
+    with codecs.open(params['log_path'] + 'reference.txt', 'w+', 'utf-8') as f:
         for i in range(len(reference)):
-            f.write(" ".join(reference[i])+'\n')
+            f.write(" ".join(reference[i]) + '\n')
 
     score = {}
     for metric in config.metrics:
@@ -297,7 +294,7 @@ def main():
     # checkpoint
     if opt.restore:
         print('loading checkpoint...\n')
-        checkpoints = torch.load(opt.restore, map_location = 'cuda:%d' % opt.gpus[0])
+        checkpoints = torch.load(opt.restore, map_location='cuda:%d' % opt.gpus[0])
     else:
         checkpoints = None
 

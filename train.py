@@ -170,7 +170,7 @@ def train_model(model, data, optim, epoch, params):
                           % (epoch, params['report_loss'], time.time() - params['report_time'],
                              params['updates'], params['report_correct'] * 100.0 / params['report_total']))
             print('evaluating after %d updates...\r' % params['updates'])
-            score = eval_model(model, data, params)
+            score = eval_model(model, data, params, 'valid')
             for metric in config.metrics:
                 params[metric].append(score[metric])
                 if score[metric] >= max(params[metric]):
@@ -188,14 +188,18 @@ def train_model(model, data, optim, epoch, params):
     optim.updateLearningRate(score=0, epoch=epoch)
 
 
-def eval_model(model, data, params):
+def eval_model(model, data, params, mode='valid'):
     model.eval()
     reference, candidate, source, alignments = [], [], [], []
-    count, total_count = 0, len(data['testset'])
-    validloader = data['testloader']
+    if mode == 'valid':
+        count, total_count = 0, len(data['validset'])
+        dataloader = data['validloader']
+    else:
+        count, total_count = 0, len(data['testset'])
+        dataloader = data['testloader']
     tgt_vocab = data['tgt_vocab']
 
-    for src, tgt, src_len, tgt_len, original_src, original_tgt in validloader:
+    for src, tgt, src_len, tgt_len, original_src, original_tgt in dataloader:
 
         if config.use_cuda:
             src = src.cuda()
@@ -319,9 +323,9 @@ def main():
                 print("Decaying learning rate to %g" % scheduler.get_lr()[0])
             train_model(model, data, optim, i, params)
         for metric in config.metrics:
-            print_log("Best %s score: %.2f\n" % (metric, max(params[metric])))
+            print_log("Best %s score: %s\n" % (metric, str(max(params[metric]))))
     else:
-        score = eval_model(model, data, params)
+        score = eval_model(model, data, params, 'test')
 
 
 if __name__ == '__main__':

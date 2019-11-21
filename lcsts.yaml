@@ -1,7 +1,7 @@
 data: 'data/lcsts/global_data/'
 logF: 'experiments/lcsts/'
 epoch: 20
-batch_size: 64
+batch_size: 32
 optim: 'adam'
 cell: 'lstm'
 attention: 'luong_gate'

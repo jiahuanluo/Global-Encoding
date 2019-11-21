@@ -111,11 +111,12 @@ class seq2seq(nn.Module):
         src = torch.index_select(src, dim=0, index=indices)
         src = src.t()
         batch_size = src.size(1)
-        contexts, encState = self.encoder(src, lengths.tolist())
+        contexts, encState = self.encoder(src, lengths.tolist())  # (seq_length, batch_size, hidden_size)
 
         #  (1b) Initialize for the decoder.
         def var(a):
-            return torch.tensor(a, requires_grad=False)
+            # return torch.tensor(a, requires_grad=False)
+            return a.clone().detach().requires_grad_(False)
 
         def rvar(a):
             return var(a.repeat(1, beam_size, 1))
@@ -128,7 +129,7 @@ class seq2seq(nn.Module):
 
         # Repeat everything beam_size times.
         # contexts = rvar(contexts.data)
-        contexts = rvar(contexts)
+        contexts = rvar(contexts)  # (seq_length, batch_size * beam_size, hidden_size)
 
         if self.config.cell == 'lstm':
             decState = (rvar(encState[0]), rvar(encState[1]))
@@ -154,7 +155,10 @@ class seq2seq(nn.Module):
                       .t().contiguous().view(-1))
 
             # Run one step.
-            output, decState, attn = self.decoder(inp, decState)
+            if self.config.bi_dec:
+                output, decState, attn = self.decoder(inp.unsqueeze(0), None)
+            else:
+                output, decState, attn = self.decoder(inp, decState)
             # decOut: beam x rnn_size
 
             # (b) Compute a vector of batch*beam word scores.

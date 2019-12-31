@@ -132,7 +132,6 @@ class seq2seq(nn.Module):
 
         # Repeat everything beam_size times.
         # contexts = rvar(contexts.data)
-        contexts = rvar(contexts)  # (seq_length, batch_size * beam_size, hidden_size)
 
         if self.config.cell == 'lstm':
             decState = (rvar(encState[0]), rvar(encState[1]))
@@ -143,7 +142,12 @@ class seq2seq(nn.Module):
                           cuda=self.use_cuda, length_norm=self.config.length_norm)
                 for __ in range(batch_size)]
         if self.decoder.attention is not None:
-            self.decoder.attention.init_context(contexts)
+            if self.config.attention == 'self_att':
+                contexts = rvar(contexts.transpose(0, 1))  # (seq_length, batch_size * beam_size, hidden_size)
+                self.decoder.attention.init_context(contexts)
+            else:
+                contexts = rvar(contexts)  # (seq_length, batch_size * beam_size, hidden_size)
+                self.decoder.attention.init_context(contexts)
 
         # (2) run the decoder to generate sentences, using beam search.
 

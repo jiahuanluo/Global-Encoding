@@ -170,7 +170,7 @@ def train_model(model, data, optim, epoch, params):
                           % (epoch, params['report_loss'], time.time() - params['report_time'],
                              params['updates'], params['report_correct'] * 100.0 / params['report_total']))
             print('evaluating after %d updates...\r' % params['updates'])
-            score = eval_model(model, data, params, 'valid')
+            score = eval_model(model, data, params, 'test')
             for metric in config.metrics:
                 params[metric].append(score[metric])
                 if score[metric] >= max(params[metric]):
@@ -188,7 +188,7 @@ def train_model(model, data, optim, epoch, params):
     optim.updateLearningRate(score=0, epoch=epoch)
 
 
-def eval_model(model, data, params, mode='valid'):
+def eval_model(model, data, params, mode='test'):
     model.eval()
     reference, candidate, source, alignments = [], [], [], []
     if mode == 'valid':

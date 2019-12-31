@@ -148,6 +148,7 @@ class rnn_decoder(nn.Module):
             elif self.config.attention == 'self_att':
                 attn_input = output.unsqueeze(1)
                 output, attn_weights = self.attention(attn_input, self.attention.context, self.attention.context)
+                output = output.squeeze(1)
             else:
                 output, attn_weights = self.attention(output, embs)
         else:

@@ -40,7 +40,10 @@ class seq2seq(nn.Module):
         contexts, state = self.encoder(src, src_len.tolist())  # (seq_length, batch_size, hidden_size)
 
         if self.decoder.attention is not None:
+            if self.config.attention == "self_att":
                 self.decoder.attention.init_context(context=contexts.transpose(0, 1))
+            else:
+                self.decoder.attention.init_context(context=contexts)
         outputs = []
         inputs = []
         if teacher:

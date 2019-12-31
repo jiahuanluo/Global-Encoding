@@ -45,7 +45,8 @@ class rnn_encoder(nn.Module):
                 self.attention = models.luong_attention(config.hidden_size, config.emb_size, config.pool_size)
             elif config.attention == 'luong_gate':
                 self.attention = models.luong_gate_attention(config.hidden_size, config.emb_size)
-
+            elif config.attention == 'self_att':
+                self.attention = models.MultiHeadAttention(n_head=8, d_model=config.hidden_size, d_k=64, d_v=64)
         if config.cell == 'gru':
             self.rnn = nn.GRU(input_size=config.emb_size, hidden_size=config.hidden_size,
                               num_layers=config.enc_num_layers, dropout=config.dropout,
@@ -80,10 +81,14 @@ class rnn_encoder(nn.Module):
                 outputs = outputs.transpose(1, 2).transpose(0, 1)
 
         if self.config.selfatt:
-            self.attention.init_context(context=conv)
-            out_attn, weights = self.attention(conv, selfatt=True)
-            gate = self.sigmoid(out_attn)
-            outputs = outputs * gate
+            if self.config.attention != 'self_att':
+                self.attention.init_context(context=conv)
+                out_attn, weights = self.attention(conv, selfatt=True)
+                gate = self.sigmoid(out_attn)
+                outputs = outputs * gate
+            else:
+                conv = conv.transpose(0, 1)
+                outputs, _ = self.attention(conv, conv, conv)
 
         if self.config.cell == 'gru':
             state = state[:self.config.dec_num_layers]
@@ -125,7 +130,8 @@ class rnn_decoder(nn.Module):
             self.attention = models.luong_attention(config.hidden_size, config.emb_size, config.pool_size)
         elif config.attention == 'luong_gate':
             self.attention = models.luong_gate_attention(config.hidden_size, config.emb_size, prob=config.dropout)
-
+        elif config.attention == 'self_att':
+            self.attention = models.MultiHeadAttention(n_head=8, d_model=config.hidden_size, d_k=64, d_v=64)
         self.hidden_size = config.hidden_size
         self.dropout = nn.Dropout(config.dropout)
         self.config = config
@@ -139,6 +145,9 @@ class rnn_decoder(nn.Module):
         if self.attention is not None:
             if self.config.attention == 'luong_gate':
                 output, attn_weights = self.attention(output)
+            elif self.config.attention == 'self_att':
+                attn_input = output.unsqueeze(1)
+                output, attn_weights = self.attention(attn_input, self.attention.context, self.attention.context)
             else:
                 output, attn_weights = self.attention(output, embs)
         else:

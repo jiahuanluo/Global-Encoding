@@ -87,9 +87,7 @@ class rnn_encoder(nn.Module):
                 gate = self.sigmoid(out_attn)
                 outputs = outputs * gate
             else:
-                conv = conv.transpose(0, 1)
                 outputs, _ = self.attention(conv, conv, conv)
-
         if self.config.cell == 'gru':
             state = state[:self.config.dec_num_layers]
         else:
@@ -146,7 +144,7 @@ class rnn_decoder(nn.Module):
             if self.config.attention == 'luong_gate':
                 output, attn_weights = self.attention(output)
             elif self.config.attention == 'self_att':
-                attn_input = output.unsqueeze(1)
+                attn_input = output.unsqueeze(0)
                 output, attn_weights = self.attention(attn_input, self.attention.context, self.attention.context)
                 output = output.squeeze(1)
             else:
